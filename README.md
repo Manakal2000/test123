@@ -2,6 +2,17 @@
 
 This project is a RESTful API developed for the **5COSC022W Client-Server Architectures** coursework. It is implemented using **JAX-RS (Jersey)** and manages three main resources in a Smart Campus environment: **Rooms**, **Sensors**, and **Sensor Readings**. The API follows REST principles, uses nested resources for reading history, and includes custom exception mapping and logging for better reliability and maintainability.
 
+## What This API Does
+
+The Smart Campus API allows clients to:
+
+Discover the main API entry point and available resource collections
+Create and retrieve rooms
+Register sensors and link them to existing rooms
+Filter sensors by type
+Add and retrieve historical readings for a specific sensor
+Prevent invalid operations through custom error handling
+
 ---
 
 ## Overview
@@ -62,6 +73,13 @@ src/main/java/com/smartcampus/api/
     └── DataStore.java
 ```
 
+## Clone the Repository
+
+Clone the project from GitHub:
+
+git clone https://github.com/Manakal2000/test123.git
+cd test123
+
 ---
 
 ## API Base Path
@@ -84,6 +102,15 @@ http://localhost:8080/SmartCampusAPI/api/v1
 
 ### 1. Discovery Endpoint
 Provides basic API metadata and top-level resource links.
+
+Example Response
+{
+  "version": "v1",
+  "resources": {
+    "rooms": "/api/v1/rooms",
+    "sensors": "/api/v1/sensors"
+  }
+}
 
 ### 2. Room Management
 Supports creating rooms, retrieving all rooms, retrieving a single room, and deleting a room if it has no assigned sensors.
@@ -145,6 +172,12 @@ to your servlet container.
 http://localhost:8080/SmartCampusAPI/api/v1
 ```
 
+## Quick Run Summary
+1.Clone the repository
+2.Build the project
+3.Deploy WAR file
+4.Open API in browser or Postman
+
 ---
 
 ## API Endpoints
@@ -164,6 +197,25 @@ http://localhost:8080/SmartCampusAPI/api/v1
 | POST | `/api/v1/sensors/{sensorId}/readings` | Add a reading to a sensor |
 
 ---
+## Sample JSON Response
+{
+  "id": "TEMP-001",
+  "type": "Temperature",
+  "status": "ACTIVE",
+  "currentValue": 27.5,
+  "roomId": "LIB-301"
+}
+
+## System Flow
+
+Client → API Endpoint → Resource Class → DataStore → JSON Response
+
+## Design Decisions
+Used thread-safe collections (ConcurrentHashMap) for shared data
+Used sub-resource pattern to reduce complexity
+Used exception mappers for structured error handling
+Used query parameters for flexible filtering
+Used centralized logging instead of manual logging
 
 ## Sample curl Commands
 

@@ -4,19 +4,6 @@ This project is a RESTful API developed for the **5COSC022W Client-Server Archit
 
 ---
 
-## What This API Does
-
-The Smart Campus API allows clients to:
-
-- Discover the main API entry point and available resource collections
-- Create and retrieve rooms
-- Register sensors and link them to existing rooms
-- Filter sensors by type
-- Add and retrieve historical readings for a specific sensor
-- Prevent invalid operations through custom error handling
-
----
-
 ## Overview
 
 The API allows clients to:

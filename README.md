@@ -93,7 +93,8 @@ http://localhost:8080/SmartCampusAPI/api/v1
 ### 1. Discovery Endpoint
 Provides basic API metadata and top-level resource links.
 
-Example Response
+**Example Response**
+```json
 {
   "version": "v1",
   "resources": {
@@ -101,6 +102,8 @@ Example Response
     "sensors": "/api/v1/sensors"
   }
 }
+```
+---
 
 ### 2. Room Management
 Supports creating rooms, retrieving all rooms, retrieving a single room, and deleting a room if it has no assigned sensors.

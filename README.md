@@ -191,6 +191,8 @@ http://localhost:8080/SmartCampusAPI/api/v1
 
 ---
 ## Sample JSON Response
+
+```json
 {
   "id": "TEMP-001",
   "type": "Temperature",
@@ -198,6 +200,7 @@ http://localhost:8080/SmartCampusAPI/api/v1
   "currentValue": 27.5,
   "roomId": "LIB-301"
 }
+```
 
 ## System Flow
 

@@ -201,11 +201,11 @@ http://localhost:8080/SmartCampusAPI/api/v1
 Client → API Endpoint → Resource Class → DataStore → JSON Response
 
 ## Design Decisions
-Used thread-safe collections (ConcurrentHashMap) for shared data
-Used sub-resource pattern to reduce complexity
-Used exception mappers for structured error handling
-Used query parameters for flexible filtering
-Used centralized logging instead of manual logging
+- Used thread-safe collections (ConcurrentHashMap) for shared data
+- Used sub-resource pattern to reduce complexity
+- Used exception mappers for structured error handling
+- Used query parameters for flexible filtering
+- Used centralized logging instead of manual logging
 
 ## Sample curl Commands
 

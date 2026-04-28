@@ -69,6 +69,7 @@ Clone the project from GitHub:
 ```bash
 git clone https://github.com/Manakal2000/test123.git
 cd test123
+```
 ---
 
 ## API Base Path

@@ -166,7 +166,7 @@ http://localhost:8080/SmartCampusAPI/api/v1
 ```
 
 ## Quick Run Summary
-``` id="d3ll6c"
+--- id="n2gdbs"
 1.Clone the repository
 2.Build the project
 3.Deploy WAR file

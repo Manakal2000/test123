@@ -317,7 +317,6 @@ In this Smart Campus API, returning full room objects is appropriate because the
 
 ---
 
----
 
 #### Question 4: Is the DELETE operation idempotent in your implementation? Provide a detailed justification by describing what happens if a client mistakenly sends the exact same DELETE request for a room multiple times.
 

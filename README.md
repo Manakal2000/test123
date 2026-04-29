@@ -317,6 +317,8 @@ In this Smart Campus API, returning full room objects is appropriate because the
 
 ---
 
+---
+
 #### Question 4: Is the DELETE operation idempotent in your implementation? Provide a detailed justification by describing what happens if a client mistakenly sends the exact same DELETE request for a room multiple times.
 
 Yes, the DELETE operation in this implementation is idempotent, which aligns with HTTP/REST semantics. Idempotency means that multiple identical requests result in the same final state on the server, regardless of how many times the operation is executed.

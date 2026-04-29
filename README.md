@@ -391,10 +391,12 @@ In this Smart Campus API, a `GlobalExceptionMapper` is used to intercept unhandl
 
 #### Question 10: Why is it advantageous to use JAX-RS filters for cross-cutting concerns like logging, rather than manually inserting Logger.info() statements inside every single resource method?
 
-Logging is a cross-cutting concern because it applies to the whole API, not just one endpoint. If logging statements are manually added inside every resource method, the code becomes repetitive, harder to maintain, and easier to make inconsistent. Some methods may log too much, others may log too little, and future changes would require editing many files.
+Logging is considered a cross-cutting concern because it applies to all API endpoints rather than a single resource. If logging is implemented manually using `Logger.info()` inside each resource method, it leads to code duplication, inconsistent logging behaviour, and increased maintenance effort. Any change to logging logic would require modifying multiple classes.
 
-JAX-RS filters provide a cleaner solution because they allow logging to be handled centrally. A `ContainerRequestFilter` can log incoming request details such as HTTP method and URI, while a `ContainerResponseFilter` can log outgoing response status codes. This ensures that all endpoints follow the same logging behaviour.
+JAX-RS filters provide a centralized and structured approach to handle logging. A `ContainerRequestFilter` can intercept incoming HTTP requests and log details such as the request method and URI, while a `ContainerResponseFilter` can capture outgoing responses, including status codes. This ensures consistent logging across all endpoints without modifying individual resource methods.
 
-Filters also improve observability because they operate as part of the request-response pipeline. They can capture requests and responses in a consistent way without mixing logging logic with business logic. This keeps resource classes focused on handling API operations while the filter handles monitoring and diagnostics. In this project, the logging filter improves maintainability and helps track API activity during testing and demonstration.
+From an architectural perspective, filters are part of the JAX-RS request–response pipeline, meaning they execute before and after resource methods. This allows logging to be applied uniformly, even for requests that fail validation or do not reach the resource layer.
+
+In this Smart Campus API, the `ApiLoggingFilter` implements both request and response filters to log key request details and response outcomes. This approach improves maintainability, enforces separation of concerns, and enhances observability of API behaviour during testing and debugging.
 
 ---

@@ -327,6 +327,7 @@ When a DELETE request is issued for a room, the resource is removed from the in-
 From a REST perspective, idempotency is important for reliability in distributed systems. Network failures or timeouts may cause clients to retry requests, and idempotent operations ensure that these retries do not produce unintended side effects.
 
 In this Smart Campus API, an additional business rule is enforced: a room cannot be deleted if it still has associated sensors. In such cases, the API returns `409 Conflict`, indicating that the request is valid but cannot be completed due to the current resource state. This constraint preserves referential integrity while still maintaining idempotent behaviour, as repeated DELETE requests will consistently result in the same outcome unless the system state changes.
+
 ---
 
 ### Part 3 – Sensor Operations & Linking

@@ -379,7 +379,7 @@ Returning a generic `500 Internal Server Error` message while logging the full t
 
 Logging is a cross-cutting concern because it applies to all endpoints. Using JAX-RS filters allows the application to handle request and response logging in one centralized place. This avoids code duplication, keeps resource methods cleaner, and makes future logging changes easier to manage.
 
-In this project, the logging filter automatically records request method, request URI, and response status code for every API call.
+In this project, the logging filter automatically records request method, request URI, and response status code for every API call. Filters can also capture requests that may be rejected before reaching a resource method, such as invalid content-type requests, so they provide more complete observability.
 
 ---
 

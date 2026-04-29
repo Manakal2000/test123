@@ -307,57 +307,71 @@ The main benefit for client developers is reduced dependency on hardcoded URLs a
 
 #### Question 3: When returning a list of rooms, what are the implications of returning only IDs versus returning the full room objects? Consider network bandwidth and client-side processing.
 
-Returning only room IDs results in a smaller response payload, which reduces network bandwidth usage and improves performance, especially in large-scale systems. However, this approach increases client-side complexity because additional requests are required to retrieve full room details, leading to more round-trip communication.
+Returning only room IDs results in a smaller response payload, which reduces network bandwidth usage and improves response time, particularly in systems with large datasets. This approach minimizes serialization and data transfer costs. However, it introduces additional complexity on the client side, as the client must perform multiple follow-up requests (N+1 request problem) to retrieve full room details. This increases overall latency and can negatively impact performance due to additional HTTP round-trips.
 
-In contrast, returning full room objects increases the response size but provides all necessary information in a single request. This reduces the number of API calls and simplifies client-side processing.
+In contrast, returning full room objects provides complete resource representations in a single response. Although this increases payload size and serialization overhead, it reduces the need for additional API calls and simplifies client-side processing. Clients can directly consume the data without implementing extra request logic.
 
-In this Smart Campus API, returning full room objects is more suitable because the dataset is relatively small and the focus is on clarity and ease of use. It allows clients to access complete room information directly without making multiple requests, improving usability during testing and development.
+From a RESTful design perspective, returning full representations aligns with the principle of providing self-descriptive and complete resources. It also avoids excessive client-server interactions, improving efficiency in typical use cases.
 
+In this Smart Campus API, returning full room objects is appropriate because the system uses in-memory storage and handles a relatively small dataset. Therefore, the trade-off of slightly larger payload size is acceptable, while reducing client complexity and avoiding the N+1 request problem leads to a more practical and efficient design.
 ---
 
 #### Question 4: Is the DELETE operation idempotent in your implementation? Provide a detailed justification by describing what happens if a client mistakenly sends the exact same DELETE request for a room multiple times.
 
-Yes, the DELETE operation in this implementation is idempotent. Idempotency means that executing the same request multiple times results in the same final state on the server.
+Yes, the DELETE operation in this implementation is idempotent, which aligns with HTTP/REST semantics. Idempotency means that multiple identical requests result in the same final state on the server, regardless of how many times the operation is executed.
 
-When a DELETE request is sent for a room, the room is removed from the in-memory `DataStore`. If the same request is repeated, the room no longer exists, so no further changes occur. The response may differ (for example, returning `404 Not Found`), but the system state remains unchanged.
+When a DELETE request is issued for a room, the resource is removed from the in-memory `DataStore`. If the same request is repeated, the resource no longer exists, so no additional state changes occur. Although the HTTP response may differ (e.g., the first request may return a success response such as `204 No Content`, while subsequent requests may return `404 Not Found`), the server state remains unchanged after the initial deletion.
 
-Additionally, the API enforces a business rule that prevents deletion of rooms that still have assigned sensors, returning `409 Conflict`. This ensures data integrity while maintaining idempotent behavior.
+From a REST perspective, idempotency is important for reliability in distributed systems. Network failures or timeouts may cause clients to retry requests, and idempotent operations ensure that these retries do not produce unintended side effects.
 
+In this Smart Campus API, an additional business rule is enforced: a room cannot be deleted if it still has associated sensors. In such cases, the API returns `409 Conflict`, indicating that the request is valid but cannot be completed due to the current resource state. This constraint preserves referential integrity while still maintaining idempotent behaviour, as repeated DELETE requests will consistently result in the same outcome unless the system state changes.
 ---
 
 ### Part 3 – Sensor Operations & Linking
 
-#### Question 5: We explicitly use the @Consumes (MediaType.APPLICATION_JSON) annotation on the POST method. Explain the technical consequences if a client attempts to send data in a different format, such as text/plain or application/xml. How does JAX-RS handle this mismatch? 
+#### Question 5: We explicitly use the @Consumes (MediaType.APPLICATION_JSON) annotation on the POST method. Explain the technical consequences if a client attempts to send data in a different format, such as text/plain or application/xml. How does JAX-RS handle this mismatch?
 
-The `@Consumes(MediaType.APPLICATION_JSON)` annotation tells the JAX-RS runtime that the resource method only accepts request bodies with the media type `application/json`. This is especially important for POST methods because the request body must be converted into a Java object, such as a `Room`, `Sensor`, or `SensorReading`.
+The `@Consumes(MediaType.APPLICATION_JSON)` annotation defines the expected media type of the request body and is used by the JAX-RS runtime during request matching and entity deserialization. It indicates that the resource method can only process requests with the `Content-Type: application/json` header.
 
-If a client sends data using another content type, such as `text/plain` or `application/xml`, the request does not match the media type expected by the method. JAX-RS handles this mismatch before the request reaches the resource method. The framework rejects the request and typically returns HTTP `415 Unsupported Media Type`.
+If a client sends data using a different media type, such as `text/plain` or `application/xml`, the request fails during the content negotiation phase. JAX-RS checks the `Content-Type` header against the `@Consumes` annotation before invoking the resource method. Since the media type does not match, the runtime cannot select a suitable message body reader to convert the request payload into the corresponding Java object.
 
-This behaviour is useful because it prevents incompatible data from entering the application logic. It also makes the API contract clearer: clients must send JSON when creating rooms, sensors, or readings. This improves reliability, reduces parsing errors, and keeps input handling consistent across the API.
+As a result, the request is rejected at the framework level, and JAX-RS returns an HTTP `415 Unsupported Media Type` response without executing the resource method. This prevents invalid or unsupported data formats from reaching the application logic.
+
+From a technical perspective, this mechanism relies on JAX-RS providers (MessageBodyReader implementations), which are responsible for deserializing incoming JSON into Java objects. When the media type is unsupported, no appropriate provider is found, leading to the 415 response.
+
+This behaviour enforces a strict API contract, ensures type safety during deserialization, and improves reliability by preventing malformed or incompatible input from being processed.
 
 ---
 
 #### Question 6: Why is using `@QueryParam` generally better for filtering a collection than putting the filter value in the URL path?
 
-Using `@QueryParam` is more appropriate for filtering because it represents an optional constraint applied to an existing collection resource rather than defining a new resource. For example, `/api/v1/sensors?type=Temperature` still refers to the sensors collection, with the server applying a filter condition on the `type` attribute.
+Using `@QueryParam` is more appropriate for filtering because it represents an optional constraint applied to a collection resource rather than defining a new resource path. For example, `/api/v1/sensors?type=Temperature` still refers to the sensors collection, with the server applying a filter condition on the `type` attribute.
 
-In contrast, embedding filter values in the path (e.g., `/api/v1/sensors/type/Temperature`) can incorrectly imply a hierarchical resource structure, which does not accurately reflect the underlying domain model. In RESTful design, path parameters are typically used to uniquely identify resources, while query parameters are used to refine or search within a collection.
+In contrast, embedding filter values in the path (e.g., `/api/v1/sensors/type/Temperature`) can incorrectly imply a hierarchical resource structure, which does not align with RESTful resource modeling. Path parameters are typically used to uniquely identify resources (e.g., `/sensors/{id}`), whereas query parameters are designed for searching, filtering, and refining results within a collection.
 
-From a JAX-RS perspective, `@QueryParam` allows resource methods to accept optional parameters without requiring multiple endpoint definitions. This supports cleaner API design and reduces code duplication. Filtering logic can then be applied dynamically within the method, for example by iterating over in-memory collections and applying conditional checks.
+From a JAX-RS perspective, `@QueryParam` enables automatic binding of query string parameters to method arguments at runtime. This allows resource methods to accept optional filtering criteria without defining multiple endpoint variations. The filtering logic can then be applied dynamically within the method, typically by evaluating conditions on in-memory collections or streams.
 
-Additionally, query parameters improve extensibility. Multiple filters can be combined easily (e.g., `/api/v1/sensors?type=Temperature&status=ACTIVE&roomId=LIB-301`) without changing the endpoint structure. This makes the API more flexible, scalable, and easier to maintain as new filtering requirements are introduced.
+Additionally, query parameters support extensibility and composability. Multiple filters can be combined in a single request (e.g., `/api/v1/sensors?type=Temperature&status=ACTIVE&roomId=LIB-301`), avoiding endpoint explosion and improving scalability. This also aligns with common API design practices for implementing flexible query operations.
+
+Overall, using `@QueryParam` results in cleaner URI design, better separation of concerns, and more maintainable server-side code while providing a more efficient and flexible interface for clients.
 
 ---
 
 ### Part 4 – Deep Nesting with Sub-Resources
 
-#### Question 7: Discuss the architectural benefits of the Sub-Resource Locator pattern. How does delegating logic to separate classes help manage complexity in large APIs compared to defining every nested path (e.g., sensors/{id}/readings/{rid}) in one massive controller class? 
+#### Question 7: Discuss the architectural benefits of the Sub-Resource Locator pattern. How does delegating logic to separate classes help manage complexity in large APIs compared to defining every nested path (e.g., sensors/{id}/readings/{rid}) in one massive controller class?
 
-The Sub-Resource Locator pattern is useful because it allows nested resource logic to be separated into dedicated classes. In this project, sensors and their readings have a hierarchical relationship: a sensor can have many readings, and readings belong to a specific sensor. This is represented through the nested endpoint `/api/v1/sensors/{sensorId}/readings`.
+The Sub-Resource Locator pattern is a JAX-RS design approach that allows a parent resource to delegate request handling of nested paths to a separate resource class at runtime. Instead of defining all nested endpoints within a single resource class, a method annotated with `@Path` returns another resource instance, which then handles further request processing.
 
-Instead of placing every nested path inside one large `SensorResource` class, the reading-related logic can be delegated to a separate `SensorReadingResource` class. This improves separation of concerns because `SensorResource` can focus on sensor operations, while `SensorReadingResource` can focus on reading history and adding new readings.
+In this Smart Campus API, sensors and their readings have a hierarchical relationship, where a sensor contains multiple readings. This is represented using the nested endpoint `/api/v1/sensors/{sensorId}/readings`. The `SensorResource` acts as the parent resource, while a sub-resource locator method returns an instance of `SensorReadingResource` to handle all reading-related operations.
 
-This design makes the code easier to read, maintain, and extend. If future functionality is added, such as deleting readings or retrieving a specific reading by ID, those changes can be handled inside the reading resource without making the main sensor class too large or complex. It also reflects the real-world relationship between resources more clearly, which improves the overall RESTful structure of the API.
+From an architectural perspective, this pattern improves separation of concerns by isolating domain-specific logic into dedicated classes. `SensorResource` is responsible for sensor-level operations, while `SensorReadingResource` manages reading-related functionality. This reduces class size and prevents the creation of a large, monolithic controller.
+
+Technically, sub-resource locators enable dynamic request dispatching. The JAX-RS runtime resolves the initial path, then delegates the remaining path segments to the returned sub-resource instance. This results in a modular routing mechanism that mirrors the hierarchical structure of the domain model.
+
+This approach also improves maintainability and scalability. New endpoints (e.g., `/readings/{id}` or DELETE operations) can be added within the sub-resource class without modifying the parent resource. It reduces code duplication, simplifies testing, and supports cleaner URI design.
+
+Overall, the Sub-Resource Locator pattern leads to a more modular, extensible, and maintainable API architecture, especially in complex systems with deeply nested resource relationships.
 
 ---
 

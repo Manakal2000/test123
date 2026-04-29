@@ -30,6 +30,17 @@ All data in this implementation is stored in memory using thread-safe Java colle
 - **In-memory collections** using `ConcurrentHashMap` and `CopyOnWriteArrayList`
 
 ---
+## Architecture Summary
+
+The application uses a centralized in-memory data store (`DataStore`) that is shared across all JAX-RS resource classes. Since resource classes follow a per-request lifecycle, this shared store ensures that application data remains consistent across multiple requests.
+
+To handle concurrent access, thread-safe collections such as `ConcurrentHashMap` and `CopyOnWriteArrayList` are used. This allows multiple HTTP requests to safely read and update data without causing race conditions.
+
+All data in the system is managed in memory during runtime, and resources such as rooms, sensors, and readings are created dynamically through API requests.
+
+Overall, this architecture keeps the application lightweight, avoids the need for a database, and satisfies the coursework requirement of using in-memory data storage.
+
+---
 
 ## Project Structure
 

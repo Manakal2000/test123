@@ -337,13 +337,15 @@ This behaviour is useful because it prevents incompatible data from entering the
 
 ---
 
-#### Question 6: Why is using @QueryParam generally considered superior for filtering and searching collections compared to including the filter value in the URL path (e.g., /api/v1/sensors/type/CO2)?
+#### Question 6: Why is using `@QueryParam` generally better for filtering a collection than putting the filter value in the URL path?
 
-Using `@QueryParam` is generally better for filtering because filtering is an optional modification of a collection request. For example, `/api/v1/sensors?type=Temperature` still represents the sensors collection, but the client is asking for only sensors of a particular type.
+Using `@QueryParam` is more appropriate for filtering because it represents an optional constraint applied to an existing collection resource rather than defining a new resource. For example, `/api/v1/sensors?type=Temperature` still refers to the sensors collection, with the server applying a filter condition on the `type` attribute.
 
-If the filter value is placed in the path, such as `/api/v1/sensors/type/Temperature`, it can make the URL look like `type/Temperature` is a separate resource hierarchy. This is less clean from a RESTful design perspective because `type` is not really a unique resource; it is a filtering condition.
+In contrast, embedding filter values in the path (e.g., `/api/v1/sensors/type/Temperature`) can incorrectly imply a hierarchical resource structure, which does not accurately reflect the underlying domain model. In RESTful design, path parameters are typically used to uniquely identify resources, while query parameters are used to refine or search within a collection.
 
-Query parameters are also more flexible. If the API later supports more filters, such as status or roomId, they can be added easily, for example `/api/v1/sensors?type=Temperature&status=ACTIVE`. This avoids creating many separate endpoints and keeps the API scalable and easy to maintain.
+From a JAX-RS perspective, `@QueryParam` allows resource methods to accept optional parameters without requiring multiple endpoint definitions. This supports cleaner API design and reduces code duplication. Filtering logic can then be applied dynamically within the method, for example by iterating over in-memory collections and applying conditional checks.
+
+Additionally, query parameters improve extensibility. Multiple filters can be combined easily (e.g., `/api/v1/sensors?type=Temperature&status=ACTIVE&roomId=LIB-301`) without changing the endpoint structure. This makes the API more flexible, scalable, and easier to maintain as new filtering requirements are introduced.
 
 ---
 
@@ -363,21 +365,27 @@ This design makes the code easier to read, maintain, and extend. If future funct
 
 #### Question 8: Why is HTTP 422 often more semantically accurate than 404 when the issue is a missing reference inside a valid JSON payload?
 
-HTTP `404 Not Found` usually means that the requested URL or resource itself does not exist. For example, if a client requests a room by an ID that is not available, a 404 may be suitable.
+HTTP `404 Not Found` is normally used when the requested URL or target resource cannot be found. For example, if a client sends a request to retrieve a specific room and that room ID does not exist, returning `404 Not Found` is appropriate because the requested resource itself is missing.
 
-However, when creating a sensor, the client sends a request to a valid endpoint such as `/api/v1/sensors`. The endpoint exists, and the JSON structure may also be valid. The problem is that the JSON body contains a `roomId` that does not refer to an existing room. In this case, the request is syntactically correct but semantically invalid.
+However, in this Smart Campus API, the missing reference problem happens during sensor creation. The client sends a `POST` request to a valid endpoint, `/api/v1/sensors`, with a JSON body containing a `roomId`. In this case, the endpoint exists and the JSON structure may be valid, but the `roomId` inside the request body refers to a room that does not exist in the `DataStore`.
 
-Therefore, HTTP `422 Unprocessable Entity` is more accurate because it tells the client that the server understood the request format but cannot process it due to invalid domain data. This makes the error clearer for API consumers. It shows that the client should correct the referenced `roomId`, not the endpoint URL itself.
+Therefore, HTTP `422 Unprocessable Entity` is more semantically accurate because the server understands the request and can parse the JSON, but it cannot process the request due to invalid domain data. The issue is not the `/api/v1/sensors` endpoint; the issue is the invalid linked resource reference inside the payload.
+
+In this implementation, `SensorResource` checks whether the provided `roomId` exists before saving the sensor. If the room is not found, a `LinkedResourceNotFoundException` is thrown, and the exception mapper converts it into a `422 Unprocessable Entity` response with a structured JSON error message. This gives the client a clearer explanation that the `roomId` must be corrected rather than the endpoint URL.
 
 ---
 
-#### Question 9: From a cybersecurity standpoint, explain the risks associated with exposing internal Java stack traces to external API consumers. What specific information could an attacker gather from such a trace? 
+#### Question 9: From a cybersecurity standpoint, explain the risks associated with exposing internal Java stack traces to external API consumers. What specific information could an attacker gather from such a trace?
 
-Exposing internal Java stack traces is dangerous because stack traces can reveal sensitive implementation details. They may show package names, class names, method names, file paths, framework versions, and internal execution flow. This information can help attackers understand how the application is structured.
+Exposing internal Java stack traces to external API consumers is a serious security risk because it reveals sensitive implementation details about the system. A typical stack trace may include package names, class names, method calls, file paths, framework and library versions, and the exact execution flow that led to the error.
 
-An attacker could use these details to identify weak points, search for known vulnerabilities in the technologies being used, or craft more targeted attacks. Even if the error itself seems harmless, the information disclosed by a stack trace can reduce the security of the system.
+From an attacker’s perspective, this information can be used to understand the internal architecture and technology stack of the application. For example, knowing the frameworks and versions in use allows attackers to search for known vulnerabilities (such as publicly disclosed CVEs) and target unpatched components. File paths and class structures may also reveal how the application is organized, making it easier to identify potential entry points for exploitation.
 
-A safer approach is to return a generic HTTP `500 Internal Server Error` response to the client while logging the detailed technical error only on the server side. This protects internal implementation details while still allowing developers to debug problems using server logs. In this project, the global exception mapper acts as a safety net to prevent raw Java errors from leaking to API users.
+In addition, stack traces can expose details about validation logic, request handling, or business rules, which can help attackers craft more targeted attacks such as injection attacks, parameter tampering, or denial-of-service attempts. In some cases, improperly handled errors may even leak sensitive data.
+
+To mitigate these risks, APIs should not expose raw stack traces to clients. Instead, a generic HTTP `500 Internal Server Error` response should be returned, while detailed error information is securely logged on the server side.
+
+In this Smart Campus API, a `GlobalExceptionMapper` is used to intercept unhandled exceptions and convert them into structured JSON error responses. This ensures that internal implementation details are not exposed to API consumers, while still allowing developers to diagnose issues using server-side logs.
 
 ---
 

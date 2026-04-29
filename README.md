@@ -297,89 +297,111 @@ This keeps logging centralized and avoids repeating log statements in every reso
 
 ### Part 1 – Service Architecture & Setup
 
-**1. Explain the default lifecycle of a JAX-RS resource class. Is a new instance created for every request or is it treated as a singleton? How does this affect in-memory data structures?**
+#### 1. Explain the default lifecycle of a JAX-RS resource class. Is a new instance created for every request or is it treated as a singleton? How does this affect in-memory data structures?
 
-By default, JAX-RS resource classes follow a **per-request lifecycle**. This means a new instance of the resource class is typically created for each incoming HTTP request rather than using one shared singleton instance. This is useful because it reduces the risk of accidental shared mutable state inside resource objects.
+In JAX-RS, the default lifecycle of a resource class is per-request. This means that the JAX-RS runtime normally creates a new instance of a resource class for every incoming HTTP request. This behaviour is useful because each request is handled independently, and instance-level data inside one request is not automatically shared with another request. As a result, the risk of accidental shared mutable state inside resource objects is reduced.
 
-However, this project stores application data in shared in-memory collections, so the data itself must live outside the resource class. To handle this safely, the implementation uses shared static collections inside `DataStore`, including thread-safe structures such as `ConcurrentHashMap` and `CopyOnWriteArrayList`. These collections allow multiple concurrent requests to read and modify data without easily corrupting the application state.
+If the runtime treated resource classes as singletons by default, the same resource object would be reused by many concurrent requests. In that case, any mutable instance variable could be accessed by multiple threads at the same time, which could cause race conditions, inconsistent values, or data corruption. Therefore, the per-request lifecycle provides safer request isolation.
+
+However, because each resource instance is short-lived, instance variables are not suitable for storing application data that must survive across requests. In this Smart Campus API, shared data such as rooms, sensors, and sensor readings is stored in a central `DataStore` class rather than inside resource classes. Thread-safe collections such as `ConcurrentHashMap` and `CopyOnWriteArrayList` are used so that multiple requests can access and update data safely. This design helps prevent race conditions while still keeping the API lightweight and compliant with the coursework requirement of using in-memory data structures instead of a database.
 
 ---
 
-**2. Why is hypermedia considered a hallmark of advanced RESTful design? How does it benefit client developers?**
+#### 2. Why is hypermedia considered a hallmark of advanced RESTful design? How does it benefit client developers?
 
-Hypermedia, often described through HATEOAS, improves RESTful design by allowing the server to guide clients through the API using links inside responses. Instead of forcing the client to hard-code every endpoint, the API can return resource locations such as `/api/v1/rooms` and `/api/v1/sensors` from the discovery endpoint.
+Hypermedia, also known through the REST concept HATEOAS, is considered an advanced RESTful design principle because it allows the API response itself to guide the client. Instead of expecting the client developer to manually know every endpoint in advance, the server can return links to related resources and actions.
 
-This benefits client developers because the API becomes easier to explore and less tightly coupled to fixed URL knowledge. If the API grows in future, clients can rely more on server-provided navigation and less on external documentation alone.
+In this project, the discovery endpoint provides API metadata and links to important resource collections such as `/api/v1/rooms` and `/api/v1/sensors`. This makes the API easier to understand because the client can start from the root endpoint and discover available resources from there.
+
+The main benefit for client developers is reduced dependency on hardcoded URLs and static documentation. If the API grows or changes in the future, clients can rely more on server-provided links to navigate the system. This improves maintainability, flexibility, and discoverability. Although this coursework implementation uses a simplified form of hypermedia, the discovery endpoint still demonstrates the RESTful idea of making an API easier to explore and navigate.
 
 ---
 
 ### Part 2 – Room Management
 
-**3. When returning a list of rooms, what are the implications of returning only IDs versus full room objects?**
+#### 3. When returning a list of rooms, what are the implications of returning only IDs versus returning full room objects?
 
-Returning only room IDs reduces payload size and uses less bandwidth, which can be useful in very large systems. However, it forces the client to make extra requests if full room details are needed.
+Returning only room IDs produces a smaller response payload. This reduces bandwidth usage and can improve performance, especially in very large systems with thousands of rooms. However, it also means the client receives limited information. If the client needs the room name, capacity, or assigned sensors, it must send additional requests for each room. This increases round-trip communication and makes client-side processing more complex.
 
-Returning full room objects increases the response size but makes the API easier to use because the client receives all important information in one request. In this project, returning full room objects is a practical choice because it improves clarity and simplicity for testing and demonstration.
+Returning full room objects increases the size of the response, but it gives the client all important information in one request. This improves usability because the client can immediately display or process room details without making extra API calls.
+
+In this Smart Campus API, returning full room objects is a practical design choice because the coursework focuses on clarity, testing, and demonstrating RESTful resource representation. Since the project uses in-memory data and a manageable dataset, the increased payload size is acceptable. It also makes the API easier to test in Postman and easier for client developers to understand.
 
 ---
 
-**4. Is the DELETE operation idempotent in this implementation? Justify your answer.**
+#### 4. Is the DELETE operation idempotent in your implementation? Provide a detailed justification.
 
-Yes, the DELETE operation is idempotent in terms of the final system state. If a room is successfully deleted once, sending the same DELETE request again will not delete anything further because the room no longer exists. The first request may return success, while later requests may return `404 Not Found`, but the overall result remains the same: the room is absent from the system.
+Yes, the DELETE operation is idempotent in terms of the final system state. An idempotent operation means that sending the same request multiple times should produce the same final state as sending it once.
+
+In this implementation, when a room is deleted successfully, it is removed from the in-memory `DataStore`. If the same DELETE request is sent again, the room is already absent, so the second request does not remove anything further. The response may change from success to `404 Not Found`, but the final state of the system remains the same: the room does not exist.
+
+This is important in RESTful API design because clients or networks may sometimes retry requests. Idempotency ensures that repeated DELETE requests do not create unexpected side effects. Additionally, this API includes a business rule that prevents deleting a room if sensors are still assigned to it. In that case, the API returns `409 Conflict`, preserving data integrity and preventing orphaned sensor references.
 
 ---
 
 ### Part 3 – Sensor Operations & Linking
 
-**5. What happens if a client sends data in a format other than `application/json` when the method uses `@Consumes(MediaType.APPLICATION_JSON)`?**
+#### 5. What happens if a client sends data in a format other than `application/json` when the method uses `@Consumes(MediaType.APPLICATION_JSON)`?
 
-When a resource method is annotated with `@Consumes(MediaType.APPLICATION_JSON)`, JAX-RS expects the request body to be sent as JSON. If a client sends another content type such as `text/plain` or `application/xml`, the framework will reject the request before it reaches the method logic. This typically results in an HTTP `415 Unsupported Media Type` response.
+The `@Consumes(MediaType.APPLICATION_JSON)` annotation tells the JAX-RS runtime that the resource method only accepts request bodies with the media type `application/json`. This is especially important for POST methods because the request body must be converted into a Java object, such as a `Room`, `Sensor`, or `SensorReading`.
 
-This behaviour helps enforce consistent input handling and prevents the method from receiving data in an unsupported format.
+If a client sends data using another content type, such as `text/plain` or `application/xml`, the request does not match the media type expected by the method. JAX-RS handles this mismatch before the request reaches the resource method. The framework rejects the request and typically returns HTTP `415 Unsupported Media Type`.
+
+This behaviour is useful because it prevents incompatible data from entering the application logic. It also makes the API contract clearer: clients must send JSON when creating rooms, sensors, or readings. This improves reliability, reduces parsing errors, and keeps input handling consistent across the API.
 
 ---
 
-**6. Why is using `@QueryParam` generally better for filtering a collection than putting the filter value in the path?**
+#### 6. Why is using `@QueryParam` generally better for filtering a collection than putting the filter value in the URL path?
 
-A query parameter is more appropriate for filtering because the client is still requesting the same collection resource, only with an optional filter applied. For example, `/sensors?type=Temperature` still refers to the sensors collection.
+Using `@QueryParam` is generally better for filtering because filtering is an optional modification of a collection request. For example, `/api/v1/sensors?type=Temperature` still represents the sensors collection, but the client is asking for only sensors of a particular type.
 
-If the filter is placed in the path, such as `/sensors/type/Temperature`, it can wrongly suggest that `type/Temperature` is a separate resource hierarchy rather than a filtered view of the same collection. Query parameters are also easier to extend when multiple filters are needed.
+If the filter value is placed in the path, such as `/api/v1/sensors/type/Temperature`, it can make the URL look like `type/Temperature` is a separate resource hierarchy. This is less clean from a RESTful design perspective because `type` is not really a unique resource; it is a filtering condition.
+
+Query parameters are also more flexible. If the API later supports more filters, such as status or roomId, they can be added easily, for example `/api/v1/sensors?type=Temperature&status=ACTIVE`. This avoids creating many separate endpoints and keeps the API scalable and easy to maintain.
 
 ---
 
 ### Part 4 – Deep Nesting with Sub-Resources
 
-**7. What are the architectural benefits of the Sub-Resource Locator pattern?**
+#### 7. What are the architectural benefits of the Sub-Resource Locator pattern?
 
-The Sub-Resource Locator pattern helps keep the API modular by delegating nested paths to dedicated classes. In this project, `SensorResource` handles the main sensor collection, while `SensorReadingResource` is responsible for `/sensors/{sensorId}/readings`.
+The Sub-Resource Locator pattern is useful because it allows nested resource logic to be separated into dedicated classes. In this project, sensors and their readings have a hierarchical relationship: a sensor can have many readings, and readings belong to a specific sensor. This is represented through the nested endpoint `/api/v1/sensors/{sensorId}/readings`.
 
-This separation improves readability, reduces class size, and makes the code easier to maintain. Instead of building one very large controller class that handles every nested path, each resource class focuses on a clear responsibility.
+Instead of placing every nested path inside one large `SensorResource` class, the reading-related logic can be delegated to a separate `SensorReadingResource` class. This improves separation of concerns because `SensorResource` can focus on sensor operations, while `SensorReadingResource` can focus on reading history and adding new readings.
+
+This design makes the code easier to read, maintain, and extend. If future functionality is added, such as deleting readings or retrieving a specific reading by ID, those changes can be handled inside the reading resource without making the main sensor class too large or complex. It also reflects the real-world relationship between resources more clearly, which improves the overall RESTful structure of the API.
 
 ---
 
 ### Part 5 – Advanced Error Handling, Exception Mapping & Logging
 
-**8. Why is HTTP 422 often more semantically accurate than 404 when a sensor references a room ID that does not exist?**
+#### 8. Why is HTTP 422 often more semantically accurate than 404 when the issue is a missing reference inside a valid JSON payload?
 
-A `404 Not Found` response usually means the target URL itself does not exist. In this case, the request is still being sent to a valid endpoint such as `/api/v1/sensors`. The real problem is that the JSON body contains a `roomId` value that refers to a missing linked resource.
+HTTP `404 Not Found` usually means that the requested URL or resource itself does not exist. For example, if a client requests a room by an ID that is not available, a 404 may be suitable.
 
-For that reason, `422 Unprocessable Entity` is often more accurate. It communicates that the request format is valid, but the meaning of the data is unacceptable because the referenced room does not exist.
+However, when creating a sensor, the client sends a request to a valid endpoint such as `/api/v1/sensors`. The endpoint exists, and the JSON structure may also be valid. The problem is that the JSON body contains a `roomId` that does not refer to an existing room. In this case, the request is syntactically correct but semantically invalid.
 
----
-
-**9. What are the cybersecurity risks of exposing internal Java stack traces to clients?**
-
-Exposing stack traces can reveal sensitive internal details such as class names, package names, method names, server structure, and implementation libraries. An attacker could use this information to understand the architecture of the application and look for weaknesses more effectively.
-
-Returning a generic `500 Internal Server Error` message while logging the full technical details only on the server side is safer because it limits what external users can learn about the system.
+Therefore, HTTP `422 Unprocessable Entity` is more accurate because it tells the client that the server understood the request format but cannot process it due to invalid domain data. This makes the error clearer for API consumers. It shows that the client should correct the referenced `roomId`, not the endpoint URL itself.
 
 ---
 
-**10. Why is it advantageous to use JAX-RS filters for logging rather than adding log statements to every resource method?**
+#### 9. From a cybersecurity standpoint, what are the risks of exposing internal Java stack traces to external API consumers?
 
-Logging is a cross-cutting concern because it applies to all endpoints. Using JAX-RS filters allows the application to handle request and response logging in one centralized place. This avoids code duplication, keeps resource methods cleaner, and makes future logging changes easier to manage.
+Exposing internal Java stack traces is dangerous because stack traces can reveal sensitive implementation details. They may show package names, class names, method names, file paths, framework versions, and internal execution flow. This information can help attackers understand how the application is structured.
 
-In this project, the logging filter automatically records request method, request URI, and response status code for every API call. Filters can also capture requests that may be rejected before reaching a resource method, such as invalid content-type requests, so they provide more complete observability.
+An attacker could use these details to identify weak points, search for known vulnerabilities in the technologies being used, or craft more targeted attacks. Even if the error itself seems harmless, the information disclosed by a stack trace can reduce the security of the system.
+
+A safer approach is to return a generic HTTP `500 Internal Server Error` response to the client while logging the detailed technical error only on the server side. This protects internal implementation details while still allowing developers to debug problems using server logs. In this project, the global exception mapper acts as a safety net to prevent raw Java errors from leaking to API users.
+
+---
+
+#### 10. Why is it advantageous to use JAX-RS filters for cross-cutting concerns like logging rather than manually inserting `Logger.info()` statements inside every resource method?
+
+Logging is a cross-cutting concern because it applies to the whole API, not just one endpoint. If logging statements are manually added inside every resource method, the code becomes repetitive, harder to maintain, and easier to make inconsistent. Some methods may log too much, others may log too little, and future changes would require editing many files.
+
+JAX-RS filters provide a cleaner solution because they allow logging to be handled centrally. A `ContainerRequestFilter` can log incoming request details such as HTTP method and URI, while a `ContainerResponseFilter` can log outgoing response status codes. This ensures that all endpoints follow the same logging behaviour.
+
+Filters also improve observability because they operate as part of the request-response pipeline. They can capture requests and responses in a consistent way without mixing logging logic with business logic. This keeps resource classes focused on handling API operations while the filter handles monitoring and diagnostics. In this project, the logging filter improves maintainability and helps track API activity during testing and demonstration.
 
 ---
 

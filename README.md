@@ -305,23 +305,23 @@ The main benefit for client developers is reduced dependency on hardcoded URLs a
 
 ### Part 2 – Room Management
 
-#### Question 3: When returning a list of rooms, what are the implications of returning only IDs versus returning the full room objects? Consider network bandwidth and client-side processing. 
+#### Question 3: When returning a list of rooms, what are the implications of returning only IDs versus returning the full room objects? Consider network bandwidth and client-side processing.
 
-Returning only room IDs produces a smaller response payload. This reduces bandwidth usage and can improve performance, especially in very large systems with thousands of rooms. However, it also means the client receives limited information. If the client needs the room name, capacity, or assigned sensors, it must send additional requests for each room. This increases round-trip communication and makes client-side processing more complex.
+Returning only room IDs results in a smaller response payload, which reduces network bandwidth usage and improves performance, especially in large-scale systems. However, this approach increases client-side complexity because additional requests are required to retrieve full room details, leading to more round-trip communication.
 
-Returning full room objects increases the size of the response, but it gives the client all important information in one request. This improves usability because the client can immediately display or process room details without making extra API calls.
+In contrast, returning full room objects increases the response size but provides all necessary information in a single request. This reduces the number of API calls and simplifies client-side processing.
 
-In this Smart Campus API, returning full room objects is a practical design choice because the coursework focuses on clarity, testing, and demonstrating RESTful resource representation. Since the project uses in-memory data and a manageable dataset, the increased payload size is acceptable. It also makes the API easier to test in Postman and easier for client developers to understand.
+In this Smart Campus API, returning full room objects is more suitable because the dataset is relatively small and the focus is on clarity and ease of use. It allows clients to access complete room information directly without making multiple requests, improving usability during testing and development.
 
 ---
 
 #### Question 4: Is the DELETE operation idempotent in your implementation? Provide a detailed justification by describing what happens if a client mistakenly sends the exact same DELETE request for a room multiple times.
 
-Yes, the DELETE operation is idempotent in terms of the final system state. An idempotent operation means that sending the same request multiple times should produce the same final state as sending it once.
+Yes, the DELETE operation in this implementation is idempotent. Idempotency means that executing the same request multiple times results in the same final state on the server.
 
-In this implementation, when a room is deleted successfully, it is removed from the in-memory `DataStore`. If the same DELETE request is sent again, the room is already absent, so the second request does not remove anything further. The response may change from success to `404 Not Found`, but the final state of the system remains the same: the room does not exist.
+When a DELETE request is sent for a room, the room is removed from the in-memory `DataStore`. If the same request is repeated, the room no longer exists, so no further changes occur. The response may differ (for example, returning `404 Not Found`), but the system state remains unchanged.
 
-This is important in RESTful API design because clients or networks may sometimes retry requests. Idempotency ensures that repeated DELETE requests do not create unexpected side effects. Additionally, this API includes a business rule that prevents deleting a room if sensors are still assigned to it. In that case, the API returns `409 Conflict`, preserving data integrity and preventing orphaned sensor references.
+Additionally, the API enforces a business rule that prevents deletion of rooms that still have assigned sensors, returning `409 Conflict`. This ensures data integrity while maintaining idempotent behavior.
 
 ---
 

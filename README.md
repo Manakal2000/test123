@@ -1,6 +1,6 @@
 # Smart Campus API
 
-This project is a RESTful API developed for the **5COSC022W Client-Server Architectures** coursework. It is implemented using **JAX-RS (Jersey)** and manages three main resources in a Smart Campus environment: **Rooms**, **Sensors**, and **Sensor Readings**. The API follows REST principles, uses nested resources for reading history, and includes custom exception mapping and logging for better reliability and maintainability.
+Module: 5COSC022W Client-Server Architectures | University of Westminster | 2025/26
 
 ---
 

@@ -4,18 +4,19 @@ This project is a RESTful API developed for the **5COSC022W Client-Server Archit
 
 ---
 
-## Overview
+## Project Overview
 
-The API allows clients to:
+The Smart Campus REST API is a RESTful web service designed to support a university smart campus environment. It provides a system for managing IoT-based sensors across different campus locations, allowing users to create rooms, assign sensors, record environmental data, and observe real-time conditions.
 
-- discover the main API entry point and available resource collections
-- create and retrieve rooms
-- register sensors and link them to existing rooms
-- filter sensors by type
-- add and retrieve historical readings for a specific sensor
-- prevent invalid operations through custom error handling
+The API is built around three main resources that are logically connected:
 
-This implementation uses **in-memory storage only** through Java collections, as required by the coursework. No database is used.
+- **Rooms** — represent physical spaces within the campus where sensors are deployed  
+- **Sensors** — devices (such as Temperature or CO2 sensors) that collect environmental data  
+- **Sensor Readings** — time-based data values captured by sensors  
+
+The system also applies important business rules to ensure consistency. A sensor must always be linked to an existing room, rooms cannot be removed if they still contain sensors, and sensors marked as **MAINTENANCE** are not allowed to accept new readings.
+
+All data in this implementation is stored in memory using thread-safe Java collections, in accordance with the coursework requirements, without using a database.
 
 ---
 
@@ -202,18 +203,6 @@ http://localhost:8080/SmartCampusAPI/api/v1
   "roomId": "LIB-301"
 }
 ```
-
-## System Flow
-
-Client → API Endpoint → Resource Class → DataStore → JSON Response
-
-## Design Decisions
-- Used thread-safe collections (ConcurrentHashMap) for shared data
-- Used sub-resource pattern to reduce complexity
-- Used exception mappers for structured error handling
-- Used query parameters for flexible filtering
-- Used centralized logging instead of manual logging
-
 ## Sample curl Commands
 
 ### 1. Get API discovery information

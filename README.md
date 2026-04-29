@@ -314,6 +314,7 @@ In contrast, returning full room objects provides complete resource representati
 From a RESTful design perspective, returning full representations aligns with the principle of providing self-descriptive and complete resources. It also avoids excessive client-server interactions, improving efficiency in typical use cases.
 
 In this Smart Campus API, returning full room objects is appropriate because the system uses in-memory storage and handles a relatively small dataset. Therefore, the trade-off of slightly larger payload size is acceptable, while reducing client complexity and avoiding the N+1 request problem leads to a more practical and efficient design.
+
 ---
 
 #### Question 4: Is the DELETE operation idempotent in your implementation? Provide a detailed justification by describing what happens if a client mistakenly sends the exact same DELETE request for a room multiple times.
